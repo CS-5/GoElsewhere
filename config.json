@@ -1,0 +1,10 @@
+{
+  "default": "https://carsonseese.com",
+  "port": "80",
+  "redirects": [
+    {
+      "code": "/abc123",
+      "url": "https://carsonseese.com"
+    }
+  ]
+}
