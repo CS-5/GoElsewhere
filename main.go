@@ -7,16 +7,18 @@ import (
 	"net/http"
 )
 
-type Config struct {
-	DefaultURL string     `json:"default"`
-	Port       string     `json:"port"`
-	Redirects  []Redirect `json:"redirects"`
-}
+type (
+	Config struct {
+		DefaultURL string     `json:"default"`
+		Port       string     `json:"port"`
+		Redirects  []Redirect `json:"redirects"`
+	}
 
-type Redirect struct {
-	Code string `json:"code"`
-	URL  string `json:"url"`
-}
+	Redirect struct {
+		Code string `json:"code"`
+		URL  string `json:"url"`
+	}
+)
 
 var config Config
 
@@ -26,21 +28,18 @@ func main() {
 		fmt.Println(fileErr)
 	}
 
-	fmt.Println("File Opened")
-
 	err := json.Unmarshal(file, &config)
 	if err != nil {
 		fmt.Println(err)
 	}
 
-	fmt.Println(config)
-
 	fmt.Println("Starting HTTP Server")
-	http.HandleFunc("/", handler)
+	http.HandleFunc("/", redirectHandler)
+
 	http.ListenAndServe(":"+config.Port, nil)
 }
 
-func handler(w http.ResponseWriter, r *http.Request) {
+func redirectHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Request recieved for: " + r.URL.String())
 
 	//Check for default requests
