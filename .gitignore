@@ -3,3 +3,5 @@ dev.dockerfile
 *.bat
 *.env
 go-app
+**/node_modules/**
+*.vscode

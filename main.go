@@ -1,13 +1,15 @@
 package main
 
 import (
-	"os"
-	"fmt"
-	"regexp"
-	"strings"
-	"net/http"
 	"crypto/rand"
 	"database/sql"
+	"fmt"
+	"net/http"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/caarlos0/env/v5"
 	"github.com/labstack/echo"
@@ -15,30 +17,44 @@ import (
 )
 
 type (
-	Config struct {
-		Name string `env:"HTTP_NAME" envDefault:"http://0.0.0.0"`
-		IP string `env:"HTTP_IP" envDefault:""`
-		Port string `env:"HTTP_PORT" envDefault:"80"`
-		UI string `env:"UI_PATH" envDefault:"admin"`
-		DbDir string `env:"DB_DIRECTORY" envDefault:"data"`
+	config struct {
+		Name    string `env:"HTTP_NAME" envDefault:"http://0.0.0.0"`
+		IP      string `env:"HTTP_IP" envDefault:""`
+		Port    string `env:"HTTP_PORT" envDefault:"80"`
+		UI      string `env:"UI_PATH" envDefault:"admin"`
+		DbDir   string `env:"DB_DIRECTORY" envDefault:"data"`
 		Default string `env:"DEFAULT_URL" envDefault:"https://google.com"`
 	}
 
-	Redirect struct {
-		Code string `json:"code"`
-		URL string `json:"url"`
+	RedirectEntry struct {
+		ID      int64  `json:"id" form:"id" query:"id"`
+		Code    string `json:"code" form:"code" query:"code"`
+		URL     string `json:"url" form:"url" query:"url"`
+		Link    string `json:"link" form:"link" query:"link"`
+		Created string `json:"created" form:"created" query:"created"`
+		Hits    int    `json:"hits" form:"hits" query:"hits"`
+	}
+
+	apiResponse struct {
+		Good  bool          `json:"good"`
+		Entry RedirectEntry `json:"entry"`
+		Error string        `json:"error"`
 	}
 )
 
 var (
-	cfg Config
-	db *sql.DB
-	redirects = make(map[string]string)
-	urlRegex = regexp.MustCompile(`(?:(?:https?)://)(?:([-A-Z0-9+&@#/%=~_|$?!:,.]*)|[-A-Z0-9+&@#/%=~_|$?!:,.])*(?:([-A-Z0-9+&@#/%=~_|$?!:,.]*)|[A-Z0-9+&@#/%=~_|$])`) //Inb4 someone complains this is a dumb and inefficent regexp and/or someone also complains this isn't the right way to deal with global vars in Go
+	cfg       config
+	db        *sql.DB
+	redirects = make(map[string]RedirectEntry)
+	urlRegex  = regexp.MustCompile(`(?:(?:https?)://)(?:([-A-Z0-9+&@#/%=~_|$?!:,.]*)|[-A-Z0-9+&@#/%=~_|$?!:,.])*(?:([-A-Z0-9+&@#/%=~_|$?!:,.]*)|[A-Z0-9+&@#/%=~_|$])`) //Inb4 someone complains this is a dumb and inefficent regex and/or someone also complains this isn't the right way to deal with global vars in Go
+)
+
+const (
+	badEnvVar string = "The %s enviorment variable is not set correctly. You entered: '%s'. Make sure it is formatted correctly per the documentation here: (TODO: Wiki)"
 )
 
 func main() {
-	cfg = Config{}
+	cfg = config{}
 	if err := env.Parse(&cfg); err != nil {
 		fmt.Println("Error reading configuration file")
 		fmt.Println(err)
@@ -46,36 +62,35 @@ func main() {
 	}
 
 	if !urlRegex.MatchString(cfg.Name) {
-		fmt.Println("The HTTP_NAME enviorment variable is not set correctly. You entered: \"" + cfg.Name + "\". Make sure it is in the form: http/https://your.domain.com") //Probably make a string formatter thingy for this
-		badStart("The HTTP_NAME enviorment variable is not set correctly. You entered: \"" + cfg.Name + "\". Make sure it is in the form: http/https://your.domain.com")
+		badStart(fmt.Sprintf(badEnvVar, "HTTP_NAME", cfg.Name))
 	}
 
 	if !urlRegex.MatchString(cfg.Default) {
-		fmt.Println("The DEFAULT_URL enviorment variable is not set correctly. You entered: \"" + cfg.Name + "\". Make sure it is in the form: http/https://your.domain.com")
-		badStart("The DEFAULT_URL enviorment variable is not set correctly. You entered: \"" + cfg.Name + "\". Make sure it is in the form: http/https://your.domain.com")
+		badStart(fmt.Sprintf(badEnvVar, "DEFAULT_URL", cfg.Default))
 	}
-	
+
 	ok := false
 	db, ok = dbConnect()
 	if !ok {
 		badStart("There was a problem connecting to the database. See server console for details.")
 	}
+
+	//Store the redirects found in the database in memory
 	redirects = buildRedirects()
 
-	//Start the web services
+	//Start the web server
 	e := echo.New()
 	e.Debug = false
 	e.HidePort = true
 	e.HideBanner = true
-	
+
 	e.GET("/*", redirect)
-	e.Static("/" + cfg.UI, "web")
+	e.Static("/"+cfg.UI, "public")
 	//e.POST("/api/login", apiLogin)
 	e.GET("/api/list", apiList)
-	//e.GET("/api/stats", apiStats)
 	e.POST("/api/create", apiCreate)
-	e.DELETE("/api/remove", apiRemove)
 	e.PATCH("/api/update", apiUpdate)
+	e.DELETE("/api/delete", apiRemove)
 
 	bind := cfg.IP + ":" + cfg.Port
 	fmt.Println("Starting server on: " + bind)
@@ -84,14 +99,14 @@ func main() {
 
 //Start up a tiny go http server to inform the user of the problem
 func badStart(message string) {
-	fmt.Println("Bad Start!")
+	fmt.Println("Bad Start! -> '" + message + "'")
 
-	http.HandleFunc("/", func (w http.ResponseWriter, _ *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(message))
 	})
 
 	if cfg.Port != "" {
-		http.ListenAndServe(cfg.IP + ":" + cfg.Port, nil)
+		http.ListenAndServe(cfg.IP+":"+cfg.Port, nil)
 	} else {
 		http.ListenAndServe(":80", nil)
 	}
@@ -104,26 +119,46 @@ func redirect(c echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, cfg.Default)
 	}
 
-	url, ok := redirects[code]
+	redirect, ok := redirects[code]
 	if !ok {
-		return c.String(http.StatusBadRequest, "No redirect matching the code: \"" + code + "\" found!")
+		return c.String(http.StatusBadRequest, "No redirect matching the code: '"+code+"' found!")
 	}
-	return c.Redirect(http.StatusSeeOther, url)
+
+	redirect.Hits++
+	_, err := db.Exec("UPDATE redirects SET hits = '" + strconv.Itoa(redirect.Hits) + "' where code = '" + code + "';")
+	if err != nil {
+		fmt.Println("Unable to increase hits value in database. See the following error:")
+		fmt.Println(err.Error())
+	}
+
+	return c.Redirect(http.StatusSeeOther, redirect.URL)
 }
 
 func apiCreate(c echo.Context) error {
-	r := Redirect{}
+	r := RedirectEntry{}
 
 	if err := c.Bind(&r); err != nil {
-		return c.String(http.StatusInternalServerError, err.Error()) //Needs formatted
+		return c.JSON(http.StatusInternalServerError, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: err.Error(),
+		})
 	}
 
 	if r.URL == "" {
-		return c.JSON(http.StatusUnprocessableEntity, "You must enter a URL") //Needs formatted
+		return c.JSON(http.StatusUnprocessableEntity, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: "You did not submit a URL. A URL is required to perform a redirect.",
+		})
 	}
 
 	if !urlRegex.MatchString(r.URL) {
-		return c.JSON(http.StatusUnprocessableEntity, r.URL + " is not a valid URL. Make sure it is in the form: 'http/https://your.domain.com' before entry.'") //Needs formatted
+		return c.JSON(http.StatusUnprocessableEntity, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: "You submitted: '" + r.URL + "' which does not appear to be a valid URL in the form of: 'http/https://example.com/sub'",
+		})
 	}
 
 	code := r.Code
@@ -138,20 +173,38 @@ func apiCreate(c echo.Context) error {
 			}
 		}
 	} else if _, exists := redirects[code]; exists {
-		return c.JSON(http.StatusUnprocessableEntity, "A redirect with this code already exists") //Needs formatted
+		return c.JSON(http.StatusUnprocessableEntity, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: "The code: '" + code + "' already exists. Please try again.",
+		})
 	}
 
-	fmt.Println(redirects)
-
-	_, err := db.Exec("INSERT INTO redirects (code, url, created) VALUES ('"+code+"', '"+r.URL+"', date('now'))")
+	result, err := db.Exec("INSERT INTO redirects (code, url, created, hits) VALUES ('" + code + "', '" + r.URL + "', date('now'), '0')")
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error()) //Needs formatted
+		return c.JSON(http.StatusInternalServerError, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: err.Error(),
+		})
 	}
 
-	redirects[code] = r.URL
-	fmt.Println(redirects)
+	id, _ := result.LastInsertId()
 
-	return c.JSON(http.StatusOK, cfg.Name + "/" + code) //Needs formatted
+	redirects[code] = RedirectEntry{
+		ID:      id,
+		Code:    code,
+		URL:     r.URL,
+		Link:    cfg.Name + "/" + code,
+		Created: time.Now().Format("01/02/2006"),
+		Hits:    0,
+	}
+
+	return c.JSON(http.StatusOK, apiResponse{
+		Good:  true,
+		Entry: redirects[code],
+		Error: "",
+	})
 }
 
 func apiList(c echo.Context) error {
@@ -159,32 +212,51 @@ func apiList(c echo.Context) error {
 }
 
 func apiRemove(c echo.Context) error {
-	r := Redirect{}
+	r := RedirectEntry{}
 
 	if err := c.Bind(&r); err != nil {
-		return c.String(http.StatusInternalServerError, err.Error()) //Needs formatted
+		return c.JSON(http.StatusInternalServerError, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: err.Error(),
+		})
 	}
 
 	if r.Code == "" {
-		return c.JSON(http.StatusUnprocessableEntity, "You must enter a code") //Needs formatted
+		return c.JSON(http.StatusUnprocessableEntity, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: "You did not submit a code. A code is required to perform a redirect.",
+		})
 	}
 
-	
 	_, err := db.Exec("DELETE FROM redirects WHERE code = '" + r.Code + "';")
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error()) //Needs formatted
+		return c.JSON(http.StatusInternalServerError, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: err.Error(),
+		})
 	}
 
 	delete(redirects, r.Code)
 
-	return c.JSON(http.StatusOK, "Deleted.") //Needs formatted
+	return c.JSON(http.StatusOK, apiResponse{
+		Good:  true,
+		Entry: r,
+		Error: "",
+	})
 }
 
 func apiUpdate(c echo.Context) error {
-	r := Redirect{}
+	r := RedirectEntry{}
 
 	if err := c.Bind(&r); err != nil {
-		return c.String(http.StatusInternalServerError, err.Error()) //Needs formatted
+		return c.JSON(http.StatusInternalServerError, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: err.Error(),
+		})
 	}
 
 	if r.Code == "" {
@@ -192,37 +264,62 @@ func apiUpdate(c echo.Context) error {
 	}
 
 	if !urlRegex.MatchString(r.URL) {
-		return c.JSON(http.StatusUnprocessableEntity, r.URL + " is not a valid URL. Make sure it is in the form: 'http/https://your.domain.com' before entry.'") //Needs formatted
+		return c.JSON(http.StatusUnprocessableEntity, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: "You submitted: '" + r.URL + "' which does not appear to be a valid URL in the form of: 'http/https://example.com/sub'",
+		})
 	}
 
 	_, err := db.Exec("UPDATE redirects SET url = '" + r.URL + "' where code = '" + r.Code + "';")
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error()) //Needs formatted
+		return c.JSON(http.StatusInternalServerError, apiResponse{
+			Good:  false,
+			Entry: r,
+			Error: err.Error(),
+		})
 	}
 
-	redirects[r.Code] = r.URL
-	
-	return c.JSON(http.StatusOK, "Updated.")//Needs formatted
+	redirects[r.Code] = RedirectEntry{
+		URL: r.URL,
+	}
+
+	return c.JSON(http.StatusOK, apiResponse{
+		Good:  true,
+		Entry: redirects[r.Code],
+		Error: "",
+	})
 }
 
-func buildRedirects() map[string]string {
+func buildRedirects() map[string]RedirectEntry {
 	//Populate list of redirects with that which is stored in the DB
-	results, err := db.Query("SELECT code, url FROM redirects")
-	if err != nil { 
+	results, err := db.Query("SELECT id, code, url, created, hits FROM redirects")
+	if err != nil {
 		fmt.Println(err)
 	}
- 
+
 	for results.Next() {
 		var (
+			id   int64
 			code string
-			url string
+			url  string
+			date time.Time
+			hits string
 		)
-		if err := results.Scan(&code, &url); err != nil {
+		if err := results.Scan(&id, &code, &url, &date, &hits); err != nil {
 			fmt.Println(err)
 		}
 
-		redirects[code] = url
-	} 
+		h, _ := strconv.Atoi(hits)
+
+		redirects[code] = RedirectEntry{
+			ID:      id,
+			URL:     url,
+			Link:    cfg.Name + "/" + code,
+			Created: date.Format("01/02/2006"),
+			Hits:    h,
+		}
+	}
 
 	return redirects
 }
@@ -236,7 +333,7 @@ func dbConnect() (*sql.DB, bool) {
 		os.MkdirAll(dbPath, 0775)
 		os.Create(dbPath + "/config.db")
 
-		db, err := sql.Open("sqlite3", dbPath + "/config.db")
+		db, err := sql.Open("sqlite3", dbPath+"/config.db")
 		if err != nil {
 			fmt.Println("Error opening the database file. Might be a permissions issue, or might be something else.")
 			fmt.Println(err)
@@ -259,9 +356,12 @@ func dbConnect() (*sql.DB, bool) {
 	fmt.Println("Opening DB Connection")
 	//Open DB Connection
 	var err error
-	db, err := sql.Open("sqlite3", dbPath + "/config.db")
+	db, err := sql.Open("sqlite3", dbPath+"/config.db")
 	if err != nil {
+		fmt.Println("There was a problem opening the database connection")
 		fmt.Println(err)
+
+		return db, false
 	}
 
 	return db, true
