@@ -18,10 +18,10 @@ import (
 
 type (
 	config struct {
-		Name    string `env:"HTTP_NAME" envDefault:"http://0.0.0.0"`
-		IP      string `env:"HTTP_IP" envDefault:""`
-		Port    string `env:"HTTP_PORT" envDefault:"80"`
-		UI      string `env:"UI_PATH" envDefault:"admin"`
+		Name string `env:"HTTP_NAME" envDefault:"http://0.0.0.0"`
+		IP   string `env:"HTTP_IP" envDefault:""`
+		Port string `env:"HTTP_PORT" envDefault:"80"`
+		//UI      string `env:"UI_PATH" envDefault:"admin"`
 		DbDir   string `env:"DB_DIRECTORY" envDefault:"data"`
 		Default string `env:"DEFAULT_URL" envDefault:"https://google.com"`
 	}
@@ -84,8 +84,8 @@ func main() {
 	e.HidePort = true
 	e.HideBanner = true
 
+	e.Static("/admin", "public")
 	e.GET("/*", redirect)
-	e.Static("/"+cfg.UI, "public")
 	//e.POST("/api/login", apiLogin)
 	e.GET("/api/list", apiList)
 	e.POST("/api/create", apiCreate)
@@ -172,11 +172,11 @@ func apiCreate(c echo.Context) error {
 				finish = true
 			}
 		}
-	} else if _, exists := redirects[code]; exists {
+	} else if _, exists := redirects[code]; exists || code == "admin" {
 		return c.JSON(http.StatusUnprocessableEntity, apiResponse{
 			Good:  false,
 			Entry: r,
-			Error: "The code: '" + code + "' already exists. Please try again.",
+			Error: "The code: '" + code + "' already exists or is 'admin' (not allowed). Please try again.",
 		})
 	}
 
@@ -377,5 +377,6 @@ func generateCode(length int) string {
 	for i, b := range bytes {
 		bytes[i] = chars[b%op]
 	}
+
 	return string(bytes)
 }

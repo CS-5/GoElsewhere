@@ -1,9 +1,10 @@
-FROM golang:latest
+FROM golang:1.11.9-alpine3.9
 
+RUN apk add --no-cache git gcc g++
 ENV GO111MODULE=on
 WORKDIR /app
 COPY main.go go.mod go.sum /app/
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o go-elsewhere . 
+RUN CGO_ENABLED=1 GOOS=linux go build -a -installsuffix cgo -o go-elsewhere . 
 
 
 FROM node

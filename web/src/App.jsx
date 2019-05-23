@@ -132,7 +132,7 @@ export default function App() {
   }
 
   return (
-    <Router>
+    <Router basename={"/admin"}>
       <CssBaseline />
       <ThemeProvider theme={theme}>
         <Nav createOpener={openCreateDialog} />
