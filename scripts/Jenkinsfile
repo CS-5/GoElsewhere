@@ -7,28 +7,28 @@ pipeline {
     //registry = ""
     //registryCredential = ""
 
-    GO111MODULE = 'on'
+    GO111MODULE = "on"
 
-    outputImage = ''
-    outputImage2 = ''
+    outputImage = ""
+    outputImage2 = ""
   }
   
   stages {
     stage("Clone Git") {
       steps {
-        git 'https://github.com/CS-5/go-elsewhere.git'
+        git "https://github.com/CS-5/go-elsewhere.git"
       }
     }
 
     stage("Test Frontend") {
       steps {
-        echo 'TODO: Setup tests'
+        echo "TODO: Setup tests"
       }
     }
 
     stage("Test Backend") {
       steps {
-        echo 'TODO: Setup tests'
+        echo "TODO: Setup tests"
       }
     }
 
@@ -36,8 +36,8 @@ pipeline {
       tools {nodejs "node"}
       steps { 
         dir("web") {
-          sh 'npm install --production'
-          sh 'npm run build'
+          sh "npm install --production"
+          sh "npm run build"
         }
       }
     }
@@ -45,13 +45,13 @@ pipeline {
     stage("Build Backend") {
       tools {go "go"}
       steps {
-        sh 'CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o goElsewhere .'
+        sh "CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o go-elsewhere ."
       }
     }
 
     stage("Test Controller") {
       steps {
-        echo 'TODO: Setup tests'
+        echo "TODO: Setup tests"
       }
     }
 
@@ -77,12 +77,12 @@ pipeline {
 
     stage("Archive and Cleanup") {
       steps {
-        sh 'tar -czvf web.tar.gz web/build/'
+        sh "tar -czvf web.tar.gz web/build/"
         archiveArtifacts allowEmptyArchive: true, artifacts: 'goElsewhere, web.tar.gz', fingerprint: true, onlyIfSuccessful: true
 
         //sh 'docker rmi $registry:latest'
         //sh 'docker rmi $registry:build_$BUILD_NUMBER'
-        sh 'rm web.tar.gz goElsewhere'
+        sh "rm web.tar.gz goElsewhere"
       }
     }
   }
