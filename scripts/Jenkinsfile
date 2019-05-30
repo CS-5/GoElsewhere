@@ -1,0 +1,89 @@
+//Note: Disabling pushing to Docker registry until Github's Registry is available
+
+pipeline {
+  agent any
+
+  environment {
+    //registry = ""
+    //registryCredential = ""
+
+    GO111MODULE = 'on'
+
+    outputImage = ''
+    outputImage2 = ''
+  }
+  
+  stages {
+    stage("Clone Git") {
+      steps {
+        git 'https://github.com/CS-5/go-elsewhere.git'
+      }
+    }
+
+    stage("Test Frontend") {
+      steps {
+        echo 'TODO: Setup tests'
+      }
+    }
+
+    stage("Test Backend") {
+      steps {
+        echo 'TODO: Setup tests'
+      }
+    }
+
+    stage("Build Frontend") {
+      tools {nodejs "node"}
+      steps { 
+        dir("web") {
+          sh 'npm install --production'
+          sh 'npm run build'
+        }
+      }
+    }
+
+    stage("Build Backend") {
+      tools {go "go"}
+      steps {
+        sh 'CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o goElsewhere .'
+      }
+    }
+
+    stage("Test Controller") {
+      steps {
+        echo 'TODO: Setup tests'
+      }
+    }
+
+/*    stage("Build Controller Image") {
+      steps {
+        script {
+          outputImage = docker.build(registry + ":latest", "-f scripts/prod.dockerfile .")
+          outputImage2 = docker.build(registry + ":build_$BUILD_NUMBER", "-f scripts/controller.dockerfile .")
+        }
+      }
+    }
+
+    stage("Push Image") {
+      steps {
+        script {
+          docker.withRegistry('', registryCredential) {
+            outputImage.push()
+            outputImage2.push()
+          }
+        }
+      }
+    }*/
+
+    stage("Archive and Cleanup") {
+      steps {
+        sh 'tar -czvf web.tar.gz web/build/'
+        archiveArtifacts allowEmptyArchive: true, artifacts: 'goElsewhere, web.tar.gz', fingerprint: true, onlyIfSuccessful: true
+
+        //sh 'docker rmi $registry:latest'
+        //sh 'docker rmi $registry:build_$BUILD_NUMBER'
+        sh 'rm web.tar.gz goElsewhere'
+      }
+    }
+  }
+}
