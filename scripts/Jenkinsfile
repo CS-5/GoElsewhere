@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    registry = "reg.carsonseese.com/external/GoElsewhere"
+    registry = "reg.carsonseese.com/external/goelsewhere"
     registryCredential = "reg.carsonseese.com"
 
     outputImage = ""
