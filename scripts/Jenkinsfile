@@ -1,13 +1,9 @@
-//Note: Disabling pushing to Docker registry until Github's Registry is available
-
 pipeline {
   agent any
 
   environment {
-    //registry = ""
-    //registryCredential = ""
-
-    GO111MODULE = "on"
+    registry = "reg.carsonseese.com/external/go-elsewhere"
+    registryCredential = "reg.carsonseese.com"
 
     outputImage = ""
     outputImage2 = ""
@@ -45,44 +41,37 @@ pipeline {
     stage("Build Backend") {
       tools {go "go"}
       steps {
-        sh "CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o go-elsewhere ."
+        sh "CGO_ENABLED=1 GOOS=linux GO111MODULE=on GOROOT=/snap/go/current go build -a -installsuffix cgo -o go-elsewhere ."
       }
     }
 
-    stage("Test Controller") {
-      steps {
-        echo "TODO: Setup tests"
-      }
-    }
-
-/*    stage("Build Controller Image") {
+    stage("Build Docker Image") {
       steps {
         script {
           outputImage = docker.build(registry + ":latest", "-f scripts/prod.dockerfile .")
-          outputImage2 = docker.build(registry + ":build_$BUILD_NUMBER", "-f scripts/controller.dockerfile .")
+          outputImage2 = docker.build(registry + ":build_$BUILD_NUMBER", "-f scripts/prod.dockerfile .")
         }
       }
     }
-
     stage("Push Image") {
       steps {
         script {
-          docker.withRegistry('', registryCredential) {
+          docker.withRegistry('https://reg.carsonseese.com', registryCredential) {
             outputImage.push()
             outputImage2.push()
           }
         }
       }
-    }*/
+    }
 
     stage("Archive and Cleanup") {
       steps {
         sh "tar -czvf web.tar.gz web/build/"
-        archiveArtifacts allowEmptyArchive: true, artifacts: 'goElsewhere, web.tar.gz', fingerprint: true, onlyIfSuccessful: true
+        archiveArtifacts allowEmptyArchive: true, artifacts: 'go-elsewhere, web.tar.gz', fingerprint: true, onlyIfSuccessful: true
 
-        //sh 'docker rmi $registry:latest'
-        //sh 'docker rmi $registry:build_$BUILD_NUMBER'
-        sh "rm web.tar.gz goElsewhere"
+        sh "docker rmi $registry:latest"
+        sh "docker rmi $registry:build_$BUILD_NUMBER"
+        sh "rm web.tar.gz go-elsewhere"
       }
     }
   }
