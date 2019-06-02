@@ -1,4 +1,4 @@
-# Go-Elsewhere
+# Go-Elsewhere ↪️
 
 ## A self-hosted URL-redirector (think [bit.ly](https://bit.ly))
 
