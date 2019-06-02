@@ -41,4 +41,5 @@ This project started as me wanting to find a self hosted alternative to the PHP-
 ### Docker
 
 `docker pull reg.carsonseese.com/external/go-elsewhere`
+
 `docker run --name goElsewhere -e HTTP_NAME='https://my.url' -e DEFAULT_URL='https://google.com' -p 80:80 reg.carsonseese.com/external/go-elsewhere`
