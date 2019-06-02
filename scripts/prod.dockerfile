@@ -2,7 +2,7 @@ FROM alpine:latest
 
 WORKDIR /root
 
-COPY go-elsewhere .
+COPY GoElsewhere .
 COPY /web/build ./public
 
-CMD ./go-elsewhere
+CMD ./GoElsewhere
