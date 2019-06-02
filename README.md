@@ -1,3 +1,4 @@
+[![Build Status](https://ci.carsonseese.com/buildStatus/icon?job=CarsonsLab%2FGo-Elsewhere)](https://ci.carsonseese.com/job/CarsonsLab/job/Go-Elsewhere/)
 # Go-Elsewhere ↪️
 
 ## A self-hosted URL-redirector (think [bit.ly](https://bit.ly))
