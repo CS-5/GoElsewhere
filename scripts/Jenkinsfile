@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    registry = "reg.carsonseese.com/external/go-elsewhere"
+    registry = "reg.carsonseese.com/external/goElsewhere"
     registryCredential = "reg.carsonseese.com"
 
     outputImage = ""
@@ -12,7 +12,7 @@ pipeline {
   stages {
     stage("Clone Git") {
       steps {
-        git "https://github.com/CS-5/go-elsewhere.git"
+        git "https://github.com/CS-5/goElsewhere.git"
       }
     }
 
@@ -41,7 +41,7 @@ pipeline {
     stage("Build Backend") {
       tools {go "go"}
       steps {
-        sh "CGO_ENABLED=1 GOOS=linux GO111MODULE=on GOROOT=/snap/go/current go build -a -installsuffix cgo -o go-elsewhere ."
+        sh "CGO_ENABLED=1 GOOS=linux GO111MODULE=on GOROOT=/snap/go/current go build -a -installsuffix cgo -o goElsewhere ."
       }
     }
 
@@ -67,11 +67,11 @@ pipeline {
     stage("Archive and Cleanup") {
       steps {
         sh "tar -czvf web.tar.gz web/build/"
-        archiveArtifacts allowEmptyArchive: true, artifacts: 'go-elsewhere, web.tar.gz', fingerprint: true, onlyIfSuccessful: true
+        archiveArtifacts allowEmptyArchive: true, artifacts: 'goElsewhere, web.tar.gz', fingerprint: true, onlyIfSuccessful: true
 
         sh "docker rmi $registry:latest"
         sh "docker rmi $registry:build_$BUILD_NUMBER"
-        sh "rm web.tar.gz go-elsewhere"
+        sh "rm web.tar.gz goElsewhere"
       }
     }
   }
