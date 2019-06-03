@@ -5,7 +5,7 @@ pipeline {
     registry = "reg.carsonseese.com/external/goelsewhere"
     registryCredential = "reg.carsonseese.com"
     
-    NODE_ENV="production"
+    NODE_ENV = "production"
 
     outputImage = ""
     outputImage2 = ""
