@@ -33,7 +33,7 @@ pipeline {
       steps { 
         dir("web") {
           sh "npm install --production"
-          sh "npm run build"
+          sh "npm run-script build"
         }
       }
     }
