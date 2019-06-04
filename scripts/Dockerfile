@@ -3,6 +3,7 @@ FROM golang:alpine
 RUN apk add --no-cache git gcc g++
 ENV CGO_ENABLED=1
 ENV GOOS=linux
+WORKDIR /app
 COPY *.go go.mod go.sum ./
 RUN go build -a -installsuffix cgo -ldflags "-w -s" -o goelsewhere .
 
@@ -17,7 +18,7 @@ RUN npm run build
 # Build Docker Image
 FROM alpine:latest
 WORKDIR /app
-COPY --from=0 goelsewhere .
+COPY --from=0 /app/goelsewhere .
 COPY --from=1 build ./public
 
 CMD ./goelsewhere
