@@ -2,11 +2,12 @@ pipeline {
   agent any
 
   environment {
+    VERSION = "1.0.0"  
+      
     registry = "reg.carsonseese.com/external/goelsewhere"
     registryCredential = "reg.carsonseese.com"
 
     outputImage = ""
-    outputImage2 = ""
   }
   
   stages {
@@ -16,62 +17,28 @@ pipeline {
       }
     }
 
-    stage("Test Frontend") {
-      steps {
-        echo "TODO: Setup tests"
-      }
-    }
-
-    stage("Test Backend") {
-      steps {
-        echo "TODO: Setup tests"
-      }
-    }
-
-    stage("Build Frontend") {
-      tools {nodejs "node"}
-      steps { 
-        dir("web") {
-          sh "npm install --production"
-          sh "npm run-script build"
-        }
-      }
-    }
-
-    stage("Build Backend") {
-      tools {go "go"}
-      steps {
-        sh "CGO_ENABLED=1 GOOS=linux GO111MODULE=on GOROOT=/snap/go/current go build -a -installsuffix cgo -o GoElsewhere ."
-      }
-    }
-
     stage("Build Docker Image") {
       steps {
         script {
-          outputImage = docker.build(registry + ":latest", "-f scripts/prod.dockerfile .")
-          outputImage2 = docker.build(registry + ":build_$BUILD_NUMBER", "-f scripts/prod.dockerfile .")
+          outputImage = docker.build(registry, "-f scripts/Dockerfile .")
         }
       }
     }
     stage("Push Image") {
       steps {
         script {
-          docker.withRegistry('https://reg.carsonseese.com', registryCredential) {
-            outputImage.push()
-            outputImage2.push()
+          docker.withRegistry("https://reg.carsonseese.com", registryCredential) {
+            outputImage.push("latest")
+            outputImage.push("$VERSION-$BUILD_NUMBER")
           }
         }
       }
     }
 
-    stage("Archive and Cleanup") {
+    stage("Cleanup") {
       steps {
-        sh "tar -czvf web.tar.gz web/build/"
-        archiveArtifacts allowEmptyArchive: true, artifacts: 'GoElsewhere, web.tar.gz', fingerprint: true, onlyIfSuccessful: true
-
         sh "docker rmi $registry:latest"
-        sh "docker rmi $registry:build_$BUILD_NUMBER"
-        sh "rm web.tar.gz GoElsewhere"
+        sh "docker rmi $registry:$VERSION-$BUILD_NUMBER"
       }
     }
   }
