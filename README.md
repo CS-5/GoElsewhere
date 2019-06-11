@@ -1,6 +1,6 @@
 [![Build Status](https://ci.carsonseese.com/buildStatus/icon?job=CarsonsLab%2FGoElsewhere)](https://ci.carsonseese.com/job/CarsonsLab/job/GoElsewhere/)
 # GoElsewhere ↪️
-
+![](demo.gif)
 ## A self-hosted URL-redirector (think [bit.ly](https://bit.ly))
 
 _Note: There is still a lot of work to be done here. In it's current state, everything mostly works (although untested), but is lacking key functionality._
