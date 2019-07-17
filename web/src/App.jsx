@@ -19,6 +19,7 @@ export default function App() {
   const [errorDialogOpen, setErrorDialogOpen] = useState(false);
   const [errorDialogMessage, setErrorDialogMessage] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userContext, setUserContext] = useState();
 
   const theme = createMuiTheme({
     palette: {
@@ -39,7 +40,7 @@ export default function App() {
   });
 
   useEffect(() => {
-    getRedirects().then(reds => setRedirects(reds));
+    setRedirects(getRedirects());
   }, []);
 
   function openCreateDialog() {
@@ -60,30 +61,29 @@ export default function App() {
   }
 
   function getRedirects() {
-    return axios
-      .get("/api/list")
-      .then(response => {
-        let r = [];
-        const data = response.data;
-
-        for (var key in data) {
-          if (data.hasOwnProperty(key)) {
-            r.push({
-              id: data[key].id,
+    fetch("/api/list", {
+      method:"GET",
+    }).then(data => data.json())
+    .then(data => {
+      let r = [];
+      for (var key in data) {
+        if(data.hasOwnProperty(key)) {
+          r.push({
+            id: data[key].id,
               code: key,
               url: data[key].url,
               link: data[key].link,
               created: data[key].created,
               hits: data[key].hits
-            });
-          }
+          })
         }
+      }
 
-        return r;
-      })
-      .catch(function(error) {
-        console.log(error);
-      });
+      return r;
+    })
+    .catch(function(error) {
+      console.log(error);
+    });
   }
 
   function createRedirect(data) {
