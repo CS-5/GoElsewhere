@@ -1,4 +1,3 @@
-[![Build Status](https://ci.carsonseese.com/buildStatus/icon?job=CarsonsLab%2FGoElsewhere)](https://ci.carsonseese.com/job/CarsonsLab/job/GoElsewhere/)
 # GoElsewhere ↪️
 ![](demo.gif)
 ## A self-hosted URL redirector (think [bit.ly](https://bit.ly))
@@ -40,9 +39,6 @@ This project started as me wanting to find a self hosted alternative to the PHP-
 
 ### Docker
 
-`docker pull reg.carsonseese.com/external/GoElsewhere`
+~~`docker pull reg.carsonseese.com/external/GoElsewhere`~~
 
-`docker run --name GoElsewhere -e HTTP_NAME='https://my.url' -e DEFAULT_URL='https://google.com' -p 80:80 reg.carsonseese.com/external/GoElsewhere`
-
-
-This is a test comment
+~~`docker run --name GoElsewhere -e HTTP_NAME='https://my.url' -e DEFAULT_URL='https://google.com' -p 80:80 reg.carsonseese.com/external/GoElsewhere`~~
