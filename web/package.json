@@ -14,7 +14,7 @@
     "@types/react": "^16.8.18",
     "@types/react-dom": "^16.8.4",
     "@types/react-router-dom": "^4.3.3",
-    "axios": "^0.18.0",
+    "axios": "^0.21.1",
     "copy-to-clipboard": "^3.2.0",
     "prettier": "^1.17.1",
     "react": "^16.8.6",
